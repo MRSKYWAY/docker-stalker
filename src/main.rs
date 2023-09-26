@@ -1,90 +1,83 @@
-use reqwest::Response;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+
+
+#[derive(Serialize,Deserialize,Debug)]
+#[serde(rename_all = "PascalCase")]
+struct Port {
+    private_port: u64,
+    public_port: u64,
+}
+
+#[derive(Serialize,Deserialize,Debug)]
+#[serde(rename_all = "PascalCase")]
+struct Containers {
+    id: Option<String>,
+    image: String,
+    command: String,
+    status: String,
+    ports: Vec<Port>,
+    names: Vec<String>,
+}
+#[derive(Serialize,Deserialize,Debug)]
+#[serde(rename_all = "PascalCase")]
+struct Images {
+    created: i32,
+    repo_tags: Vec<String>,
+    size: i64,
+}
 
 #[tokio::main]
 async fn main() -> Result<(), reqwest::Error> {
     let request_inspect = format!("http://localhost:2375/containers/json");
-    let response: Value = reqwest::get(&request_inspect).await?.json().await?;
-    
-    println!("\n\nDOCKER CONTAIER INFO::\n");
-    print_container_info(&response);
-    
-    println!("\n\nDOCKER INSPECT::\n");
+    let response: Vec<Containers> = reqwest::get(&request_inspect).await?.json().await?;
+    println!(
+        "{:<22} {:<10} {:<22} {:<20} {:<20} {:<15}",
+        "CONTAINER ID", "IMAGE", "COMMAND", "STATUS", "PORTS", "NAMES"
+    );
+    for containers in response {
+        print_container_info(containers);
+    }
+
+ 
     let request_logs = format!("http://localhost:2375/images/json");
-    let response2: Value = reqwest::get(&request_logs).await?.json().await?;
-
-    print_images_info(&response2);
-
-    Ok(())
-}
-fn print_images_info(response: &Value) {
+    let response2: Vec<Images> = reqwest::get(&request_logs).await?.json().await?;
     println!("{:<22} {:<13} {:<15}", "REPOSITORY", "TAG", "SIZE");
 
-    if let Some(images) = response.as_array() {
-        for image in images {
-            let mut repository = image["RepoTags"]
-                .as_array()
-                .and_then(|tags| tags.get(0).and_then(|tag| tag.as_str()))
-                .unwrap_or("");
-            let cont = check_len(repository, 20);
-            repository = &cont;
-            let mut tag = repository.split(':').last().unwrap_or("");
-            let cont = check_len(repository, 10);
-            tag = &cont;
-            let size_bytes = image["Size"].as_u64().unwrap_or(0);
-            let size_mb = size_bytes as f64 / (1024.0 * 1024.0);
-            println!("{:<22} {:<13} {}MB", repository, tag, size_mb.round());
+    for images in response2{
+        print_images_info(images);
+    }
+    Ok(())
+}
+fn print_images_info(response: Images) {
+    let mut names: Vec<String> = Vec::new();
+    let mut tags: Vec<String> = Vec::new();
+    for name in &response.repo_tags {
+        let v: Vec<&str> = name.split(':').collect();
+        if v.len() == 2 {
+            names.push(v[0].to_string());
+            tags.push(v[1].to_string());
         }
     }
+    let name = names.join(", ");
+    let tag = tags.join(", ");    
+    let size_bytes = response.size;
+    let size_mb = size_bytes as f64 / (1024.0 * 1024.0);
+    println!("{:<22.15} {:<13} {}MB ", name, tag, size_mb.round());
+        
+    
 }
-fn print_container_info(response: &Value) {
+fn print_container_info(res: Containers) {
+    let id = res.id.unwrap();
+    let image = res.image;
+    let command = res.command;
+    let status = res.status;
+    let names = res.names.join(",");
+    let ports =  res.ports.iter().map(|port| format!("{},{}", port.private_port, port.public_port)).collect::<Vec<String>>().join(",");
+    
     println!(
-        "{:<22} {:<10} {:<22} {:<20} {:<15}",
-        "CONTAINER ID", "IMAGE", "COMMAND", "STATUS", "NAMES"
-    );
-
-    if let Some(containers) = response.as_array() {
-        for container in containers {
-            let mut container_id = container["Id"].as_str().unwrap_or("");
-            let cont = check_len(container_id, 20);
-            container_id = &cont;
-            let mut image = container["Image"].as_str().unwrap_or("");
-            let cont = check_len(image, 15);
-            image = &cont;
-            let mut command = container["Command"].as_str().unwrap_or("");
-            let cont = check_len(command, 20);
-            command = &cont;
-            let mut created = container["Created"].as_str().unwrap_or("");
-            let cont = check_len(created, 20);
-            created = &cont;
-            let mut status = container["Status"].as_str().unwrap_or("");
-            let cont = check_len(status, 20);
-            status = &cont;
-            let mut names = container["Names"]
-                .as_array()
-                .map(|names| {
-                    names
-                        .iter()
-                        .map(|name| name.as_str().unwrap_or(""))
-                        .collect::<Vec<&str>>()
-                        .join(",")
-                })
-                .unwrap_or_else(|| "".to_string());
-
-            println!(
-                "{:<22} {:<10} {:<22} {:<20} {:<15}",
-                container_id, image, command, status, names
-            );
-        }
-    }
+        "{:<22.15}{:<10.10}{:<22.10}{:<20.16}{:<20.10}{:<15.20}",
+        id,        image,        command,        status,        ports,        names,
+    );   
+    
 }
 
-fn check_len(mut name: &str, l: usize) -> String {
-    let mut stri = String::new();
-    if name.len() > l {
-        name = &name[..l];
-    }
-    stri = name.to_string();
-    return stri;
-}
