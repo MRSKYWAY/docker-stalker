@@ -29,7 +29,8 @@ struct Images {
 #[tokio::main]
 async fn main() -> Result<(), reqwest::Error> {
     let request_inspect = format!("http://localhost:2375/containers/json");
-    let response: Vec<Containers> = reqwest::get(&request_inspect).await?.json().await?;
+    let res = get_response(&request_inspect).await?;
+    let response: Vec<Containers> = serde_json::from_str(&res).unwrap();
     println!(
         "{:<22} {:<10} {:<22} {:<20} {:<20} {:<15}",
         "CONTAINER ID", "IMAGE", "COMMAND", "STATUS", "PORTS", "NAMES"
@@ -40,7 +41,8 @@ async fn main() -> Result<(), reqwest::Error> {
 
  
     let request_logs = format!("http://localhost:2375/images/json");
-    let response2: Vec<Images> = reqwest::get(&request_logs).await?.json().await?;
+    let res2 = get_response(&request_logs).await?;
+    let response2: Vec<Images> = serde_json::from_str(&res2).unwrap();
     println!("{:<22} {:<13} {:<15}", "REPOSITORY", "TAG", "SIZE");
 
     for images in response2{
@@ -80,4 +82,17 @@ fn print_container_info(res: Containers) {
     );   
     
 }
+async fn get_response(end: &String) -> Result<String, reqwest::Error>{
 
+    let response = reqwest::get(end).await?.text().await?; // Explicitly specify T
+    Ok(response)
+
+}
+#[tokio::test]
+async fn check_connection() {
+    // Create a test runtime and run the main function asynchronously
+    let test = String::from("http://localhost:2375/containers/json");
+    let result = get_response(&test).await;
+    // Assert that the result is an Ok variant
+    assert!(result.is_ok());
+}
