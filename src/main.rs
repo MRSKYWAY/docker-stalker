@@ -30,23 +30,32 @@ struct Images {
 async fn main() -> Result<(), reqwest::Error> {
     let request_inspect = format!("http://localhost:2375/containers/json");
     let res = get_response(&request_inspect).await?;
-    let response: Vec<Containers> = serde_json::from_str(&res).unwrap();
-    println!(
-        "{:<22} {:<10} {:<22} {:<20} {:<20} {:<15}",
-        "CONTAINER ID", "IMAGE", "COMMAND", "STATUS", "PORTS", "NAMES"
-    );
-    for containers in response {
-        print_container_info(containers);
+    if res.contains("{\"message\":\"page not found\"}\n"){
+        println!("Wrong URL");
     }
-
+    else{
+        let response: Vec<Containers> = serde_json::from_str(&res).unwrap();
+        println!(
+            "{:<22} {:<10} {:<22} {:<20} {:<20} {:<15}",
+            "CONTAINER ID", "IMAGE", "COMMAND", "STATUS", "PORTS", "NAMES"
+        );
+        for containers in response {
+            print_container_info(containers);
+        }
+    }
  
-    let request_logs = format!("http://localhost:2375/images/json");
+    let request_logs = format!("http://localhost:2375/something");
     let res2 = get_response(&request_logs).await?;
-    let response2: Vec<Images> = serde_json::from_str(&res2).unwrap();
-    println!("{:<22} {:<13} {:<15}", "REPOSITORY", "TAG", "SIZE");
+    if res.contains("{\"message\":\"page not found\"}\n"){
+        println!("Wrong URL");
+    }
+    else{
+        let response2: Vec<Images> = serde_json::from_str(&res2).unwrap();
+        println!("{:<22} {:<13} {:<15}", "REPOSITORY", "TAG", "SIZE");
 
-    for images in response2{
-        print_images_info(images);
+        for images in response2{
+            print_images_info(images);
+        }
     }
     Ok(())
 }
@@ -85,14 +94,32 @@ fn print_container_info(res: Containers) {
 async fn get_response(end: &String) -> Result<String, reqwest::Error>{
 
     let response = reqwest::get(end).await?.text().await?; // Explicitly specify T
+    
     Ok(response)
-
+    
+}
+#[tokio::test]
+async fn check_connection1() {
+    // Create a test runtime and run the main function asynchronously
+    let test = String::from("http://localhost:2000/something");
+    let result: Result<String, reqwest::Error> = get_response(&test).await;
+    // Assert that the result is an Ok variant
+    assert!(result.is_err());
 }
 #[tokio::test]
 async fn check_connection() {
     // Create a test runtime and run the main function asynchronously
-    let test = String::from("http://localhost:2375/containers/json");
+    let test = String::from("http://localhost:2375/info");
     let result = get_response(&test).await;
     // Assert that the result is an Ok variant
     assert!(result.is_ok());
+}
+#[tokio::test]
+async fn check_connection2() {
+    // Create a test runtime and run the main function asynchronously
+    let test = String::from("http://localhost:2375/sdg");
+    let result: Result<String, reqwest::Error> = get_response(&test).await;
+    // Assert that the result is an Ok variant\
+    let e: String = result.unwrap().to_string();
+    assert_eq!("{\"message\":\"page not found\"}\n", e);
 }
