@@ -12,8 +12,8 @@ Docker_stalker is a monitoring dashboard designed to keep track of Docker contai
 ## Installation
 1. Clone the repository:
     ```bash
-    git clone https://github.com/your_username/Docker_stalker.git
-    cd Docker_stalker
+    git clone https://github.com/MRSKYWAY/docker-stalker.git
+    cd docker-stalker
     ```
 
 2. Build the project:
@@ -23,7 +23,7 @@ Docker_stalker is a monitoring dashboard designed to keep track of Docker contai
 
 3. Run the dashboard:
     ```bash
-    ./target/release/docker_stalker
+    cargo run
     ```
 
 ## Usage
